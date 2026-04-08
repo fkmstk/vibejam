@@ -26,6 +26,7 @@ export const createDuelExperience = ({
   resize();
   window.addEventListener("resize", resize);
 
+  let frameId = 0;
   const frame = (now: number) => {
     const changed = controller.tick(now);
     const snapshot = controller.getSnapshot();
@@ -42,19 +43,22 @@ export const createDuelExperience = ({
       onStateChange(snapshot);
     }
 
-    window.requestAnimationFrame(frame);
+    frameId = window.requestAnimationFrame(frame);
   };
 
-  window.requestAnimationFrame(frame);
+  frameId = window.requestAnimationFrame(frame);
 
   return {
     getSnapshot: () => controller.getSnapshot(),
     attemptStrike: () => {
-      if (controller.attemptStrike(performance.now())) {
+      const didStrike = controller.attemptStrike(performance.now());
+
+      if (didStrike) {
         onStateChange(controller.getSnapshot());
       }
     },
     destroy: () => {
+      window.cancelAnimationFrame(frameId);
       window.removeEventListener("resize", resize);
       scene.dispose();
     }

@@ -14,6 +14,12 @@ type ElementOptions = {
   dataset?: Record<string, string>;
 };
 
+type TextChildOptions = {
+  tagName?: keyof HTMLElementTagNameMap;
+  className?: string;
+  textContent: string;
+};
+
 interface AppShellRefs {
   sceneRoot: HTMLDivElement;
   strikeButton: HTMLButtonElement;
@@ -61,6 +67,12 @@ const createElement = <K extends keyof HTMLElementTagNameMap>(
   return element;
 };
 
+const appendTextChildren = (parent: HTMLElement, children: readonly TextChildOptions[]) => {
+  for (const { tagName = "p", ...options } of children) {
+    parent.append(createElement(tagName, options));
+  }
+};
+
 const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
   const main = createElement("main", { className: "shell" });
   const experience = createElement("section", { className: "experience" });
@@ -73,16 +85,16 @@ const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
     textContent: "刀"
   });
   const topRailCopy = createElement("div");
-  topRailCopy.append(
-    createElement("p", {
+  appendTextChildren(topRailCopy, [
+    {
       className: "top-rail__label",
       textContent: "Moonlit Counter Prototype"
-    }),
-    createElement("p", {
+    },
+    {
       className: "top-rail__value",
       textContent: "Vibe Coding Game Jam 2026"
-    })
-  );
+    }
+  ]);
   topRailSeal.append(topRailMark, topRailCopy);
 
   const topRailTrack = createElement("div", {
@@ -103,12 +115,12 @@ const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
   const stageOverlay = createElement("div", { className: "stage-shell__overlay" });
 
   const heroCopy = createElement("div", { className: "hero-copy" });
-  heroCopy.append(
-    createElement("p", {
+  appendTextChildren(heroCopy, [
+    {
       className: "eyebrow",
       textContent: "Ink / Steel / Crimson Signal"
-    })
-  );
+    }
+  ]);
 
   const title = createElement("h1", { className: "title" });
   title.append(
@@ -121,13 +133,13 @@ const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
       textContent: "GEKKA NO YAIBA"
     })
   );
-  heroCopy.append(
-    title,
-    createElement("p", {
+  heroCopy.append(title);
+  appendTextChildren(heroCopy, [
+    {
       className: "hook",
       textContent: "赤く灯った瞬間だけ、斬れる。"
-    })
-  );
+    }
+  ]);
 
   const ruleChips = createElement("div", {
     className: "rule-chips",
@@ -184,6 +196,12 @@ const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
 
   const hudBottom = createElement("div", { className: "hud__bottom" });
   const hudStatus = createElement("div", { className: "hud__status" });
+  appendTextChildren(hudStatus, [
+    {
+      className: "hud__eyebrow",
+      textContent: "Counter Read"
+    }
+  ]);
   const statusTitle = createElement("p", {
     className: "hud__status-title",
     textContent: "静観",
@@ -194,14 +212,7 @@ const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
     textContent: "深紅の合図を待て。早撃ちは負け。",
     dataset: { statusText: "" }
   });
-  hudStatus.append(
-    createElement("p", {
-      className: "hud__eyebrow",
-      textContent: "Counter Read"
-    }),
-    statusTitle,
-    statusText
-  );
+  hudStatus.append(statusTitle, statusText);
 
   const hudActions = createElement("div", { className: "hud__actions" });
   const strikeButton = createElement("button", {
@@ -231,20 +242,20 @@ const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
 
   for (const [index, titleText, body] of proofCards) {
     const card = createElement("article", { className: "proof-card" });
-    card.append(
-      createElement("p", {
+    appendTextChildren(card, [
+      {
         className: "proof-card__index",
         textContent: index
-      }),
-      createElement("p", {
+      },
+      {
         className: "proof-card__title",
         textContent: titleText
-      }),
-      createElement("p", {
+      },
+      {
         className: "proof-card__text",
         textContent: body
-      })
-    );
+      }
+    ]);
     proofStrip.append(card);
   }
 
@@ -296,22 +307,21 @@ const bootstrap = async () => {
   updateOverlay(experience.getSnapshot());
   strikeButton.disabled = false;
 
-  sceneRoot.addEventListener("pointerdown", () => {
+  const attemptStrike = () => {
     experience.attemptStrike();
-  });
-
-  strikeButton.addEventListener("click", () => {
-    experience.attemptStrike();
-  });
-
-  window.addEventListener("keydown", (event) => {
+  };
+  const handleStrikeKeydown = (event: KeyboardEvent) => {
     if (event.code !== "Space") {
       return;
     }
 
     event.preventDefault();
-    experience.attemptStrike();
-  });
+    attemptStrike();
+  };
+
+  sceneRoot.addEventListener("pointerdown", attemptStrike);
+  strikeButton.addEventListener("click", attemptStrike);
+  window.addEventListener("keydown", handleStrikeKeydown);
 };
 
 void bootstrap();
