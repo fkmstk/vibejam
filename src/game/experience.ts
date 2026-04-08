@@ -28,17 +28,18 @@ export const createDuelExperience = ({
 
   const frame = (now: number) => {
     const changed = controller.tick(now);
+    const snapshot = controller.getSnapshot();
     scene.render(
       {
-        phase: controller.getSnapshot().phase,
-        outcome: controller.getSnapshot().outcome,
+        phase: snapshot.phase,
+        outcome: snapshot.outcome,
         phaseElapsed: controller.getPhaseElapsed(now)
       },
       now
     );
 
     if (changed) {
-      onStateChange(controller.getSnapshot());
+      onStateChange(snapshot);
     }
 
     window.requestAnimationFrame(frame);

@@ -14,6 +14,24 @@ type ElementOptions = {
   dataset?: Record<string, string>;
 };
 
+interface AppShellRefs {
+  sceneRoot: HTMLDivElement;
+  strikeButton: HTMLButtonElement;
+  phaseLabel: HTMLElement;
+  windowLabel: HTMLElement;
+  statusTitle: HTMLElement;
+  statusText: HTMLElement;
+  resultFlash: HTMLElement;
+}
+
+const projectStatusLabels = ["Three.js / WebGL", "One Slash Loop", "Mobile Ready"] as const;
+const ruleChipLabels = ["敵が赤く灯る", "一拍だけ待つ", "一太刀で決める"] as const;
+const proofCards = [
+  ["01", "3D Counter Slice", "DOM演出じゃなく、WebGLシーン上で赤予兆を読む。"],
+  ["02", "One Input Duel", "1入力で勝敗が決まる、短く尖ったプレイサイクル。"],
+  ["03", "Lightweight Stage", "重い後処理なしで、月光と墨の立体感だけ残す。"]
+] as const;
+
 const createElement = <K extends keyof HTMLElementTagNameMap>(
   tagName: K,
   options: ElementOptions = {}
@@ -43,7 +61,7 @@ const createElement = <K extends keyof HTMLElementTagNameMap>(
   return element;
 };
 
-const buildAppShell = (mountPoint: HTMLDivElement) => {
+const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
   const main = createElement("main", { className: "shell" });
   const experience = createElement("section", { className: "experience" });
   main.append(experience);
@@ -71,14 +89,14 @@ const buildAppShell = (mountPoint: HTMLDivElement) => {
     className: "top-rail__track",
     attributes: { "aria-label": "project status" }
   });
-  for (const label of ["Three.js / WebGL", "One Slash Loop", "Mobile Ready"]) {
+  for (const label of projectStatusLabels) {
     topRailTrack.append(createElement("span", { textContent: label }));
   }
 
   topRail.append(topRailSeal, topRailTrack);
 
   const stageShell = createElement("section", { className: "stage-shell" });
-  const stageCanvas = createElement("div", {
+  const sceneRoot = createElement("div", {
     className: "stage-shell__canvas",
     dataset: { sceneRoot: "" }
   });
@@ -115,7 +133,7 @@ const buildAppShell = (mountPoint: HTMLDivElement) => {
     className: "rule-chips",
     attributes: { "aria-label": "core rules" }
   });
-  for (const chip of ["敵が赤く灯る", "一拍だけ待つ", "一太刀で決める"]) {
+  for (const chip of ruleChipLabels) {
     ruleChips.append(createElement("span", { className: "rule-chip", textContent: chip }));
   }
   heroCopy.append(ruleChips);
@@ -126,11 +144,11 @@ const buildAppShell = (mountPoint: HTMLDivElement) => {
   });
   const hudRow = createElement("div", { className: "hud__row" });
 
-  const phaseStrong = createElement("strong", {
+  const phaseLabel = createElement("strong", {
     textContent: "Idle",
     dataset: { phaseLabel: "" }
   });
-  const windowStrong = createElement("strong", {
+  const windowLabel = createElement("strong", {
     textContent: "Wait",
     dataset: { windowLabel: "" }
   });
@@ -154,11 +172,11 @@ const buildAppShell = (mountPoint: HTMLDivElement) => {
   };
 
   hudRow.append(
-    createHudChip("Phase", phaseStrong),
-    createHudChip("Window", windowStrong, true)
+    createHudChip("Phase", phaseLabel),
+    createHudChip("Window", windowLabel, true)
   );
 
-  const resultFlashNode = createElement("p", {
+  const resultFlash = createElement("p", {
     className: "result-flash",
     textContent: "一閃",
     dataset: { resultFlash: "" }
@@ -166,12 +184,12 @@ const buildAppShell = (mountPoint: HTMLDivElement) => {
 
   const hudBottom = createElement("div", { className: "hud__bottom" });
   const hudStatus = createElement("div", { className: "hud__status" });
-  const statusTitleNode = createElement("p", {
+  const statusTitle = createElement("p", {
     className: "hud__status-title",
     textContent: "静観",
     dataset: { statusTitle: "" }
   });
-  const statusTextNode = createElement("p", {
+  const statusText = createElement("p", {
     className: "hud__status-text",
     textContent: "深紅の合図を待て。早撃ちは負け。",
     dataset: { statusText: "" }
@@ -181,19 +199,19 @@ const buildAppShell = (mountPoint: HTMLDivElement) => {
       className: "hud__eyebrow",
       textContent: "Counter Read"
     }),
-    statusTitleNode,
-    statusTextNode
+    statusTitle,
+    statusText
   );
 
   const hudActions = createElement("div", { className: "hud__actions" });
-  const strikeAction = createElement("button", {
+  const strikeButton = createElement("button", {
     className: "button button--primary",
     textContent: "抜刀する",
     attributes: { type: "button" },
     dataset: { action: "strike" }
   });
   hudActions.append(
-    strikeAction,
+    strikeButton,
     createElement("p", {
       className: "input-hint",
       textContent: "Tap / Click / Space"
@@ -201,20 +219,15 @@ const buildAppShell = (mountPoint: HTMLDivElement) => {
   );
 
   hudBottom.append(hudStatus, hudActions);
-  hud.append(hudRow, resultFlashNode, hudBottom);
+  hud.append(hudRow, resultFlash, hudBottom);
 
   stageOverlay.append(heroCopy, hud);
-  stageShell.append(stageCanvas, stageOverlay);
+  stageShell.append(sceneRoot, stageOverlay);
 
   const proofStrip = createElement("section", {
     className: "proof-strip",
     attributes: { "aria-label": "project strengths" }
   });
-  const proofCards = [
-    ["01", "3D Counter Slice", "DOM演出じゃなく、WebGLシーン上で赤予兆を読む。"],
-    ["02", "One Input Duel", "1入力で勝敗が決まる、短く尖ったプレイサイクル。"],
-    ["03", "Lightweight Stage", "重い後処理なしで、月光と墨の立体感だけ残す。"]
-  ] as const;
 
   for (const [index, titleText, body] of proofCards) {
     const card = createElement("article", { className: "proof-card" });
@@ -237,29 +250,19 @@ const buildAppShell = (mountPoint: HTMLDivElement) => {
 
   experience.append(topRail, stageShell, proofStrip);
   mountPoint.replaceChildren(main);
+  return {
+    sceneRoot,
+    strikeButton,
+    phaseLabel,
+    windowLabel,
+    statusTitle,
+    statusText,
+    resultFlash
+  };
 };
 
-buildAppShell(app);
-
-const sceneRoot = document.querySelector<HTMLElement>("[data-scene-root]");
-const strikeButton = document.querySelector<HTMLButtonElement>("[data-action='strike']");
-const phaseLabel = document.querySelector<HTMLElement>("[data-phase-label]");
-const windowLabel = document.querySelector<HTMLElement>("[data-window-label]");
-const statusTitle = document.querySelector<HTMLElement>("[data-status-title]");
-const statusText = document.querySelector<HTMLElement>("[data-status-text]");
-const resultFlash = document.querySelector<HTMLElement>("[data-result-flash]");
-
-if (
-  !sceneRoot ||
-  !strikeButton ||
-  !phaseLabel ||
-  !windowLabel ||
-  !statusTitle ||
-  !statusText ||
-  !resultFlash
-) {
-  throw new Error("UI elements were not found.");
-}
+const { sceneRoot, strikeButton, phaseLabel, windowLabel, statusTitle, statusText, resultFlash } =
+  buildAppShell(app);
 
 const phaseCopy: Record<DuelSnapshot["phase"], string> = {
   idle: "Idle",
