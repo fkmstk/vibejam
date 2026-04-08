@@ -17,12 +17,14 @@ import {
   Vector2,
   WebGLRenderer
 } from "three";
-import type { DuelOutcome, DuelPhase } from "./types";
+import type { DuelOutcome, DuelPhase, ViewportMode } from "./types";
 
 interface SceneState {
   phase: DuelPhase;
   outcome: DuelOutcome;
   phaseElapsed: number;
+  phaseProgress: number;
+  viewportMode: ViewportMode;
 }
 
 interface FighterRig {
@@ -37,16 +39,50 @@ export interface StageScene {
   dispose(): void;
 }
 
+interface CameraRig {
+  fov: number;
+  position: { x: number; y: number; z: number };
+  lookAt: { x: number; y: number; z: number };
+  drift: { x: number; y: number };
+}
+
+const cameraRigs: Record<ViewportMode, CameraRig> = {
+  desktop: {
+    fov: 38,
+    position: { x: 0, y: 4.6, z: 12.8 },
+    lookAt: { x: 0, y: 2.35, z: 0.2 },
+    drift: { x: 0.18, y: 0.08 }
+  },
+  tablet: {
+    fov: 40,
+    position: { x: 0, y: 4.9, z: 14.1 },
+    lookAt: { x: 0, y: 2.25, z: 0.25 },
+    drift: { x: 0.12, y: 0.06 }
+  },
+  portrait: {
+    fov: 48,
+    position: { x: 0, y: 5.5, z: 17.2 },
+    lookAt: { x: 0, y: 2.2, z: 0.35 },
+    drift: { x: 0.08, y: 0.04 }
+  }
+};
+
 export const createStageScene = (
   mount: HTMLElement,
   reducedMotion: boolean
 ): StageScene => {
   const scene = new Scene();
-  scene.background = new Color("#0c0b0b");
+  scene.background = new Color("#f0ebe2");
 
   const camera = new PerspectiveCamera(38, 1, 0.1, 100);
-  camera.position.set(0, 4.6, 12.8);
-  camera.lookAt(0, 2.4, 0);
+  const applyCameraRig = (mode: ViewportMode) => {
+    const rig = cameraRigs[mode];
+    camera.fov = rig.fov;
+    camera.position.set(rig.position.x, rig.position.y, rig.position.z);
+    camera.lookAt(rig.lookAt.x, rig.lookAt.y, rig.lookAt.z);
+    camera.updateProjectionMatrix();
+  };
+  applyCameraRig("desktop");
 
   const renderer = new WebGLRenderer({
     antialias: true,
@@ -57,26 +93,26 @@ export const createStageScene = (
   renderer.domElement.className = "stage-shell__webgl";
   mount.appendChild(renderer.domElement);
 
-  const ambient = new AmbientLight("#f3ebe0", 1.15);
+  const ambient = new AmbientLight("#e8e0d4", 1.6);
   scene.add(ambient);
 
-  const hemi = new HemisphereLight("#f7ecd8", "#0f0d0d", 1.5);
+  const hemi = new HemisphereLight("#f5f0e8", "#c8bfb2", 1.2);
   hemi.position.set(0, 10, 0);
   scene.add(hemi);
 
   const moon = new Mesh(
     new SphereGeometry(1.35, 24, 24),
-    new MeshBasicMaterial({ color: "#f0e5d3" })
+    new MeshBasicMaterial({ color: "#ddd6ca" })
   );
   moon.position.set(0, 7.6, -7.4);
   scene.add(moon);
 
   const moonHalo = new Mesh(
-    new RingGeometry(1.55, 2.35, 48),
+    new RingGeometry(1.55, 2.8, 48),
     new MeshBasicMaterial({
-      color: "#f7efe5",
+      color: "#c8bfb2",
       transparent: true,
-      opacity: 0.08
+      opacity: 0.12
     })
   );
   moonHalo.position.copy(moon.position);
@@ -85,7 +121,7 @@ export const createStageScene = (
   const floor = new Mesh(
     new PlaneGeometry(26, 12),
     new MeshStandardMaterial({
-      color: "#151313",
+      color: "#d8d0c4",
       roughness: 1,
       metalness: 0
     })
@@ -97,9 +133,9 @@ export const createStageScene = (
   const path = new Mesh(
     new PlaneGeometry(9, 5),
     new MeshBasicMaterial({
-      color: "#3a3028",
+      color: "#a09484",
       transparent: true,
-      opacity: 0.24
+      opacity: 0.14
     })
   );
   path.rotation.x = -Math.PI / 2;
@@ -112,8 +148,8 @@ export const createStageScene = (
   scene.add(createTorii(-6.8));
   scene.add(createTorii(6.8, true));
 
-  const player = createFighter("#151314", "#e4dfd8", false);
-  const enemy = createFighter("#171515", "#892621", true);
+  const player = createFighter("#2a2420", "#4a4038", false);
+  const enemy = createFighter("#1a1614", "#8b3a32", true);
   player.root.position.set(-2.2, 0, 0.4);
   enemy.root.position.set(2.2, 0, 0.2);
   scene.add(player.root, enemy.root);
@@ -121,7 +157,7 @@ export const createStageScene = (
   const dangerRing = new Mesh(
     new TorusGeometry(1.18, 0.04, 18, 64),
     new MeshBasicMaterial({
-      color: "#d34d43",
+      color: "#b8433a",
       transparent: true,
       opacity: 0
     })
@@ -133,7 +169,7 @@ export const createStageScene = (
   const slash = new Mesh(
     new BoxGeometry(3.8, 0.12, 0.24),
     new MeshBasicMaterial({
-      color: "#fff4e5",
+      color: "#1a1614",
       transparent: true,
       opacity: 0
     })
@@ -145,7 +181,7 @@ export const createStageScene = (
   const screenGlow = new Mesh(
     new PlaneGeometry(18, 11),
     new MeshBasicMaterial({
-      color: "#d34d43",
+      color: "#b8433a",
       transparent: true,
       opacity: 0
     })
@@ -153,20 +189,43 @@ export const createStageScene = (
   screenGlow.position.set(0, 4, -9);
   scene.add(screenGlow);
 
+  const crimsonBloom = new Mesh(
+    new PlaneGeometry(16.2, 8.4),
+    new MeshBasicMaterial({
+      color: "#c55249",
+      transparent: true,
+      opacity: 0
+    })
+  );
+  crimsonBloom.position.set(0.1, 3.4, -5.9);
+  scene.add(crimsonBloom);
+
   const size = new Vector2();
+  let currentViewportMode: ViewportMode = "desktop";
 
   return {
     render(state, now) {
+      if (currentViewportMode !== state.viewportMode) {
+        currentViewportMode = state.viewportMode;
+        applyCameraRig(currentViewportMode);
+      }
+
+      const rig = cameraRigs[currentViewportMode];
       const idleWave = Math.sin(now * 0.0012) * (reducedMotion ? 0.02 : 0.08);
       const phasePulse = Math.sin(state.phaseElapsed * 18);
+      const idlePresence = state.phase === "idle" ? 0.28 + state.phaseProgress * 0.42 : 1;
       const threat =
         state.phase === "omen"
-          ? 0.45 + state.phaseElapsed * 0.45
+          ? 0.62 + state.phaseProgress * 0.58
           : state.phase === "strike-window"
-            ? 1
+            ? 1.25
             : state.phase === "resolved" && state.outcome === "fail"
-              ? 0.65
-              : 0;
+              ? 0.9
+            : 0;
+      const resolveBurst =
+        state.phase === "resolved"
+          ? 1 - Math.abs(0.5 - state.phaseProgress) * 2
+          : 0;
 
       player.root.position.y = idleWave * 0.35;
       enemy.root.position.y = -idleWave * 0.18;
@@ -175,9 +234,9 @@ export const createStageScene = (
       player.root.position.x = -2.2;
       enemy.root.position.x = 2.2;
 
-      player.blade.material.emissive.set("#3f3a34");
-      player.blade.material.emissiveIntensity = 0.18;
-      enemy.blade.material.emissive.set("#d34d43");
+      player.blade.material.emissive.set("#2a2420");
+      player.blade.material.emissiveIntensity = 0.12;
+      enemy.blade.material.emissive.set("#b8433a");
       enemy.blade.material.emissiveIntensity = MathUtils.lerp(
         enemy.blade.material.emissiveIntensity,
         threat * 1.4,
@@ -186,56 +245,63 @@ export const createStageScene = (
 
       enemy.aura.material.opacity = MathUtils.lerp(
         enemy.aura.material.opacity,
-        threat * 0.42,
+        (0.06 + threat * 0.48) * idlePresence,
         0.12
       );
-      enemy.aura.scale.setScalar(1 + threat * 0.16);
+      enemy.aura.scale.setScalar(1.02 + threat * 0.2);
 
-      dangerRing.material.opacity = threat * 0.72;
-      dangerRing.scale.setScalar(1 + threat * 0.28 + Math.max(0, phasePulse) * 0.02);
+      dangerRing.material.opacity = Math.min(0.94, threat * 0.78);
+      dangerRing.scale.setScalar(1.04 + threat * 0.34 + Math.max(0, phasePulse) * 0.03);
 
       slash.material.opacity = 0;
       screenGlow.material.opacity = 0;
+      crimsonBloom.material.opacity = 0.04 + Math.max(0, idlePresence - 0.2) * 0.03;
 
       if (state.phase === "omen") {
-        enemy.root.position.x = 2.2 - state.phaseElapsed * 0.24;
-        enemy.root.rotation.z = -0.08;
+        enemy.root.position.x = 2.2 - state.phaseElapsed * 0.3;
+        enemy.root.rotation.z = -0.11;
+        crimsonBloom.material.opacity = 0.14 + state.phaseProgress * 0.1;
       }
 
       if (state.phase === "strike-window") {
-        enemy.root.position.x = 1.9;
-        enemy.root.rotation.z = -0.15;
-        player.root.rotation.z = 0.06;
+        enemy.root.position.x = 1.82;
+        enemy.root.rotation.z = -0.18;
+        player.root.rotation.z = 0.08;
+        crimsonBloom.material.opacity = 0.22;
       }
 
       if (state.phase === "resolved" && state.outcome === "success") {
         const burst = MathUtils.clamp(state.phaseElapsed / 0.22, 0, 1);
-        player.root.position.x = MathUtils.lerp(-2.2, -0.4, burst);
-        player.root.rotation.z = 0.16;
-        enemy.root.position.x = MathUtils.lerp(2.2, 3.2, burst);
-        enemy.root.rotation.z = -0.42;
-        enemy.root.position.y = -burst * 0.3;
-        slash.material.opacity = 0.82 - burst * 0.42;
+        player.root.position.x = MathUtils.lerp(-2.2, -0.12, burst);
+        player.root.rotation.z = 0.2;
+        enemy.root.position.x = MathUtils.lerp(2.2, 3.55, burst);
+        enemy.root.rotation.z = -0.52;
+        enemy.root.position.y = -burst * 0.4;
+        slash.material.opacity = 0.96 - burst * 0.28;
+        crimsonBloom.material.opacity = 0.12 + resolveBurst * 0.1;
       }
 
       if (state.phase === "resolved" && state.outcome === "fail") {
-        const burst = MathUtils.clamp(state.phaseElapsed / 0.18, 0, 1);
-        enemy.root.position.x = MathUtils.lerp(2.2, 0.8, burst);
-        enemy.root.rotation.z = -0.08;
-        player.root.position.x = MathUtils.lerp(-2.2, -2.8, burst);
-        player.root.rotation.z = -0.22;
-        screenGlow.material.opacity = 0.16 - burst * 0.08;
+        const burst = MathUtils.clamp(state.phaseElapsed / 0.2, 0, 1);
+        enemy.root.position.x = MathUtils.lerp(2.2, 0.32, burst);
+        enemy.root.rotation.z = -0.12;
+        player.root.position.x = MathUtils.lerp(-2.2, -3.25, burst);
+        player.root.rotation.z = -0.3;
+        screenGlow.material.opacity = 0.26 - burst * 0.1;
+        crimsonBloom.material.opacity = 0.2 + resolveBurst * 0.08;
       }
 
       if (state.phase === "reset") {
         const settle = MathUtils.clamp(state.phaseElapsed / 0.5, 0, 1);
         player.root.position.x = MathUtils.lerp(player.root.position.x, -2.2, settle * 0.1);
         enemy.root.position.x = MathUtils.lerp(enemy.root.position.x, 2.2, settle * 0.1);
+        crimsonBloom.material.opacity = 0.05;
       }
 
-      camera.position.x = reducedMotion ? 0 : Math.sin(now * 0.0004) * 0.18;
-      camera.position.y = 4.6 + (reducedMotion ? 0 : Math.cos(now * 0.0006) * 0.08);
-      camera.lookAt(0, 2.35, 0.2);
+      camera.position.x = rig.position.x + (reducedMotion ? 0 : Math.sin(now * 0.0004) * rig.drift.x);
+      camera.position.y = rig.position.y + (reducedMotion ? 0 : Math.cos(now * 0.0006) * rig.drift.y);
+      camera.position.z = rig.position.z;
+      camera.lookAt(rig.lookAt.x, rig.lookAt.y, rig.lookAt.z);
 
       renderer.render(scene, camera);
     },
@@ -257,9 +323,9 @@ export const createStageScene = (
 const createTorii = (x: number, flip = false) => {
   const group = new Group();
   const material = new MeshStandardMaterial({
-    color: "#8f241f",
-    roughness: 0.95,
-    metalness: 0.02
+    color: "#9e3d36",
+    roughness: 0.96,
+    metalness: 0.01
   });
 
   const cross = new Mesh(new BoxGeometry(2.6, 0.16, 0.2), material);
@@ -285,9 +351,9 @@ const createTorii = (x: number, flip = false) => {
 const createMistBands = () => {
   const group = new Group();
   const material = new MeshBasicMaterial({
-    color: "#b4aca3",
+    color: "#c8c0b4",
     transparent: true,
-    opacity: 0.08
+    opacity: 0.22
   });
 
   const bandA = new Mesh(new PlaneGeometry(15, 2.4), material);
@@ -298,9 +364,17 @@ const createMistBands = () => {
     new PlaneGeometry(13, 2.2),
     material.clone()
   );
-  bandB.material.opacity = 0.05;
+  bandB.material.opacity = 0.14;
   bandB.position.set(1.8, 2.6, -4.8);
   group.add(bandB);
+
+  const bandC = new Mesh(
+    new PlaneGeometry(18, 1.8),
+    material.clone()
+  );
+  bandC.material.opacity = 0.08;
+  bandC.position.set(0, 0.5, -1.2);
+  group.add(bandC);
 
   return group;
 };
@@ -356,7 +430,7 @@ const createFighter = (bodyColor: string, bladeColor: string, enemy: boolean): F
   const aura = new Mesh(
     new RingGeometry(0.52, 0.76, 32),
     new MeshBasicMaterial({
-      color: "#d34d43",
+      color: "#b8433a",
       transparent: true,
       opacity: 0
     })

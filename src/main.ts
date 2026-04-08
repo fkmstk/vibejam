@@ -14,29 +14,17 @@ type ElementOptions = {
   dataset?: Record<string, string>;
 };
 
-type TextChildOptions = {
-  tagName?: keyof HTMLElementTagNameMap;
-  className?: string;
-  textContent: string;
-};
-
 interface AppShellRefs {
   sceneRoot: HTMLDivElement;
-  strikeButton: HTMLButtonElement;
+  heroCallout: HTMLElement;
   phaseLabel: HTMLElement;
   windowLabel: HTMLElement;
   statusTitle: HTMLElement;
   statusText: HTMLElement;
+  keyHint: HTMLElement;
   resultFlash: HTMLElement;
 }
 
-const projectStatusLabels = ["Three.js / WebGL", "One Slash Loop", "Mobile Ready"] as const;
-const ruleChipLabels = ["敵が赤く灯る", "一拍だけ待つ", "一太刀で決める"] as const;
-const proofCards = [
-  ["01", "3D Counter Slice", "DOM演出じゃなく、WebGLシーン上で赤予兆を読む。"],
-  ["02", "One Input Duel", "1入力で勝敗が決まる、短く尖ったプレイサイクル。"],
-  ["03", "Lightweight Stage", "重い後処理なしで、月光と墨の立体感だけ残す。"]
-] as const;
 
 const createElement = <K extends keyof HTMLElementTagNameMap>(
   tagName: K,
@@ -67,45 +55,17 @@ const createElement = <K extends keyof HTMLElementTagNameMap>(
   return element;
 };
 
-const appendTextChildren = (parent: HTMLElement, children: readonly TextChildOptions[]) => {
-  for (const { tagName = "p", ...options } of children) {
-    parent.append(createElement(tagName, options));
-  }
-};
-
 const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
   const main = createElement("main", { className: "shell" });
   const experience = createElement("section", { className: "experience" });
   main.append(experience);
 
   const topRail = createElement("header", { className: "top-rail" });
-  const topRailSeal = createElement("div", { className: "top-rail__seal" });
   const topRailMark = createElement("span", {
     className: "top-rail__mark",
     textContent: "刀"
   });
-  const topRailCopy = createElement("div");
-  appendTextChildren(topRailCopy, [
-    {
-      className: "top-rail__label",
-      textContent: "Moonlit Counter Prototype"
-    },
-    {
-      className: "top-rail__value",
-      textContent: "Vibe Coding Game Jam 2026"
-    }
-  ]);
-  topRailSeal.append(topRailMark, topRailCopy);
-
-  const topRailTrack = createElement("div", {
-    className: "top-rail__track",
-    attributes: { "aria-label": "project status" }
-  });
-  for (const label of projectStatusLabels) {
-    topRailTrack.append(createElement("span", { textContent: label }));
-  }
-
-  topRail.append(topRailSeal, topRailTrack);
+  topRail.append(topRailMark);
 
   const stageShell = createElement("section", { className: "stage-shell" });
   const sceneRoot = createElement("div", {
@@ -115,40 +75,19 @@ const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
   const stageOverlay = createElement("div", { className: "stage-shell__overlay" });
 
   const heroCopy = createElement("div", { className: "hero-copy" });
-  appendTextChildren(heroCopy, [
-    {
-      className: "eyebrow",
-      textContent: "Ink / Steel / Crimson Signal"
-    }
-  ]);
 
   const title = createElement("h1", { className: "title" });
   title.append(
     createElement("span", {
       className: "title__jp",
       textContent: "月下ノ刃"
-    }),
-    createElement("span", {
-      className: "title__en",
-      textContent: "GEKKA NO YAIBA"
     })
   );
-  heroCopy.append(title);
-  appendTextChildren(heroCopy, [
-    {
-      className: "hook",
-      textContent: "赤く灯った瞬間だけ、斬れる。"
-    }
-  ]);
-
-  const ruleChips = createElement("div", {
-    className: "rule-chips",
-    attributes: { "aria-label": "core rules" }
+  const heroCallout = createElement("p", {
+    className: "hero-callout",
+    textContent: "待って、赤で斬れ。"
   });
-  for (const chip of ruleChipLabels) {
-    ruleChips.append(createElement("span", { className: "rule-chip", textContent: chip }));
-  }
-  heroCopy.append(ruleChips);
+  heroCopy.append(title, heroCallout);
 
   const hud = createElement("div", {
     className: "hud",
@@ -188,20 +127,8 @@ const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
     createHudChip("Window", windowLabel, true)
   );
 
-  const resultFlash = createElement("p", {
-    className: "result-flash",
-    textContent: "一閃",
-    dataset: { resultFlash: "" }
-  });
-
   const hudBottom = createElement("div", { className: "hud__bottom" });
   const hudStatus = createElement("div", { className: "hud__status" });
-  appendTextChildren(hudStatus, [
-    {
-      className: "hud__eyebrow",
-      textContent: "Counter Read"
-    }
-  ]);
   const statusTitle = createElement("p", {
     className: "hud__status-title",
     textContent: "静観",
@@ -209,70 +136,44 @@ const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
   });
   const statusText = createElement("p", {
     className: "hud__status-text",
-    textContent: "深紅の合図を待て。早撃ちは負け。",
+    textContent: "深紅の合図を待て。",
     dataset: { statusText: "" }
   });
   hudStatus.append(statusTitle, statusText);
 
-  const hudActions = createElement("div", { className: "hud__actions" });
-  const strikeButton = createElement("button", {
-    className: "button button--primary",
-    textContent: "抜刀する",
-    attributes: { type: "button" },
-    dataset: { action: "strike" }
+  const keyHint = createElement("p", {
+    className: "key-hint",
+    textContent: "Tap / Space",
+    dataset: { inputHint: "" }
   });
-  hudActions.append(
-    strikeButton,
-    createElement("p", {
-      className: "input-hint",
-      textContent: "Tap / Click / Space"
-    })
-  );
 
-  hudBottom.append(hudStatus, hudActions);
-  hud.append(hudRow, resultFlash, hudBottom);
+  hudBottom.append(hudStatus, keyHint);
+  hud.append(hudRow, hudBottom);
 
-  stageOverlay.append(heroCopy, hud);
+  const resultFlash = createElement("p", {
+    className: "result-flash",
+    textContent: "一閃",
+    dataset: { resultFlash: "" }
+  });
+
+  stageOverlay.append(heroCopy, resultFlash, hud);
   stageShell.append(sceneRoot, stageOverlay);
 
-  const proofStrip = createElement("section", {
-    className: "proof-strip",
-    attributes: { "aria-label": "project strengths" }
-  });
-
-  for (const [index, titleText, body] of proofCards) {
-    const card = createElement("article", { className: "proof-card" });
-    appendTextChildren(card, [
-      {
-        className: "proof-card__index",
-        textContent: index
-      },
-      {
-        className: "proof-card__title",
-        textContent: titleText
-      },
-      {
-        className: "proof-card__text",
-        textContent: body
-      }
-    ]);
-    proofStrip.append(card);
-  }
-
-  experience.append(topRail, stageShell, proofStrip);
+  experience.append(topRail, stageShell);
   mountPoint.replaceChildren(main);
   return {
     sceneRoot,
-    strikeButton,
+    heroCallout,
     phaseLabel,
     windowLabel,
     statusTitle,
     statusText,
+    keyHint,
     resultFlash
   };
 };
 
-const { sceneRoot, strikeButton, phaseLabel, windowLabel, statusTitle, statusText, resultFlash } =
+const { sceneRoot, heroCallout, phaseLabel, windowLabel, statusTitle, statusText, keyHint, resultFlash } =
   buildAppShell(app);
 
 const phaseCopy: Record<DuelSnapshot["phase"], string> = {
@@ -288,13 +189,15 @@ const updateOverlay = (snapshot: DuelSnapshot) => {
   windowLabel.textContent = snapshot.canStrike ? "Now" : "Closed";
   statusTitle.textContent = snapshot.title;
   statusText.textContent = snapshot.message;
+  heroCallout.textContent = snapshot.callout;
+  keyHint.textContent = snapshot.inputHint;
   resultFlash.textContent = snapshot.flash;
   resultFlash.dataset.visible = snapshot.flashVisible ? "true" : "false";
   document.documentElement.dataset.phase = snapshot.phase;
   document.documentElement.dataset.outcome = snapshot.outcome;
+  document.documentElement.dataset.emphasis = snapshot.emphasis;
+  document.documentElement.style.setProperty("--phase-progress", snapshot.phaseProgress.toFixed(3));
 };
-
-strikeButton.disabled = true;
 
 const bootstrap = async () => {
   const { createDuelExperience } = await import("./game/experience");
@@ -305,23 +208,19 @@ const bootstrap = async () => {
   });
 
   updateOverlay(experience.getSnapshot());
-  strikeButton.disabled = false;
 
   const attemptStrike = () => {
     experience.attemptStrike();
   };
-  const handleStrikeKeydown = (event: KeyboardEvent) => {
-    if (event.code !== "Space") {
-      return;
-    }
 
-    event.preventDefault();
-    attemptStrike();
-  };
+  window.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.code === "Space" || event.code === "Enter") {
+      event.preventDefault();
+      attemptStrike();
+    }
+  });
 
   sceneRoot.addEventListener("pointerdown", attemptStrike);
-  strikeButton.addEventListener("click", attemptStrike);
-  window.addEventListener("keydown", handleStrikeKeydown);
 };
 
 void bootstrap();

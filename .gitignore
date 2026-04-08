@@ -3,4 +3,6 @@ dist
 .vercel
 .vercel-global
 .npm-cache
+.playwright-browsers
+.DS_Store
 output
