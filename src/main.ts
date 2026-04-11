@@ -1,5 +1,6 @@
 import "./styles.css";
-import type { CombatSnapshot } from "./game/types";
+import type { CombatSnapshot, TelegraphType } from "./game/types";
+import { scheduleVibeJamWidget } from "./widget";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -28,6 +29,8 @@ interface AppShellRefs {
   actionCue: HTMLElement;
 }
 
+type TelegraphCue = Exclude<TelegraphType, "none">;
+
 const createElement = <K extends keyof HTMLElementTagNameMap>(
   tagName: K,
   options: ElementOptions = {}
@@ -46,6 +49,15 @@ const setHidden = (element: HTMLElement) => {
 };
 
 const PLAYER_ATTACK_RANGE = 1.72;
+
+const telegraphActions: Record<TelegraphCue, string> = {
+  dash: "dash",
+  sweep: "sweep",
+  slam: "slam"
+};
+
+const getTelegraphCue = (type: TelegraphType): TelegraphCue | null =>
+  type === "none" ? null : type;
 
 const getDistanceToEnemy = (snapshot: CombatSnapshot) =>
   Math.hypot(snapshot.player.x - snapshot.enemy.x, snapshot.player.z - snapshot.enemy.z);
@@ -67,9 +79,10 @@ const getAction = (snapshot: CombatSnapshot) => {
   if (snapshot.enemy.vulnerable) {
     return getDistanceToEnemy(snapshot) <= PLAYER_ATTACK_RANGE ? "strike" : "approach";
   }
-  if (snapshot.enemy.telegraphType === "dash") return "dash";
-  if (snapshot.enemy.telegraphType === "sweep") return "sweep";
-  if (snapshot.enemy.telegraphType === "slam") return "slam";
+  const telegraphCue = getTelegraphCue(snapshot.enemy.telegraphType);
+  if (telegraphCue) {
+    return telegraphActions[telegraphCue];
+  }
   return "wait";
 };
 
@@ -242,3 +255,4 @@ const bootstrap = async () => {
 };
 
 void bootstrap();
+scheduleVibeJamWidget();

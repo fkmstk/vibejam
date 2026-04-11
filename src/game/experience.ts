@@ -468,6 +468,8 @@ const createSfxController = () => {
       if (!unlocked) return;
       const audio = ensureContext();
       const now = audio.currentTime;
+      const enemyState = snapshot.enemy.state;
+      const telegraphCue = snapshot.enemy.telegraphType as TelegraphCue;
 
       setMixForSnapshot(snapshot);
 
@@ -479,40 +481,34 @@ const createSfxController = () => {
 
       const enemyPressuring =
         snapshot.mode === "combat" &&
-        (snapshot.enemy.state === "move" ||
-          snapshot.enemy.state === "telegraph" ||
-          snapshot.enemy.state === "attack");
+        (enemyState === "move" || enemyState === "telegraph" || enemyState === "attack");
       if (enemyPressuring && now >= enemyStepAt) {
         playEnemyStep(
           snapshot.enemy.x / Math.max(snapshot.arenaRadius, 1),
-          snapshot.enemy.state === "telegraph" || snapshot.enemy.state === "attack"
+          enemyState === "telegraph" || enemyState === "attack"
         );
         enemyStepAt =
           now +
-          (snapshot.enemy.state === "attack"
+          (enemyState === "attack"
             ? 0.18
-            : snapshot.enemy.state === "telegraph"
+            : enemyState === "telegraph"
               ? 0.23
               : 0.31);
       }
 
       if (
         snapshot.mode === "combat" &&
-        snapshot.enemy.state === "telegraph" &&
+        enemyState === "telegraph" &&
         previous.enemy.state !== "telegraph"
       ) {
-        playTelegraphCue(snapshot.enemy.telegraphType as TelegraphCue);
+        playTelegraphCue(telegraphCue);
       }
 
-      if (
-        snapshot.enemy.state === "telegraph" &&
-        snapshot.enemy.telegraphType !== "none" &&
-        now >= telegraphPulseAt
-      ) {
-        playTelegraphPulse(snapshot.enemy.telegraphType as TelegraphCue, snapshot.enemy.telegraphProgress);
+      if (enemyState === "telegraph" && now >= telegraphPulseAt) {
+        playTelegraphPulse(telegraphCue, snapshot.enemy.telegraphProgress);
         telegraphPulseAt =
           now + clamp(0.28 - snapshot.enemy.telegraphProgress * 0.16, 0.08, 0.28);
-      } else if (snapshot.enemy.state !== "telegraph") {
+      } else if (enemyState !== "telegraph") {
         telegraphPulseAt = now;
       }
 
@@ -556,6 +552,10 @@ declare global {
 export const createDuelExperience = ({ mount, onStateChange }: ExperienceOptions) => {
   const controller = new CombatController();
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const enableDebugHooks =
+    import.meta.env.DEV ||
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
   const scene = createStageScene(mount, reducedMotion);
   const size = new Vector2();
 
@@ -743,16 +743,18 @@ export const createDuelExperience = ({ mount, onStateChange }: ExperienceOptions
   window.addEventListener("pointercancel", onPointerCancel);
   document.addEventListener("fullscreenchange", resize);
 
-  window.render_game_to_text = () => renderCombatSnapshotToText(lastSnapshot);
-  window.advanceTime = (ms: number) => {
-    const frames = Math.max(1, Math.round(ms / (FIXED_STEP * 1000)));
-    for (let index = 0; index < frames; index += 1) {
-      controller.step(FIXED_STEP, readMovement());
-    }
-    accumulator = 0;
-    lastFrameTime = performance.now();
-    emitState(true);
-  };
+  if (enableDebugHooks) {
+    window.render_game_to_text = () => renderCombatSnapshotToText(lastSnapshot);
+    window.advanceTime = (ms: number) => {
+      const frames = Math.max(1, Math.round(ms / (FIXED_STEP * 1000)));
+      for (let index = 0; index < frames; index += 1) {
+        controller.step(FIXED_STEP, readMovement());
+      }
+      accumulator = 0;
+      lastFrameTime = performance.now();
+      emitState(true);
+    };
+  }
 
   emitState(true);
   animationFrameId = window.requestAnimationFrame(frame);
@@ -769,8 +771,10 @@ export const createDuelExperience = ({ mount, onStateChange }: ExperienceOptions
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerCancel);
       document.removeEventListener("fullscreenchange", resize);
-      delete window.render_game_to_text;
-      delete window.advanceTime;
+      if (enableDebugHooks) {
+        delete window.render_game_to_text;
+        delete window.advanceTime;
+      }
       sfx.destroy();
       scene.dispose();
     }
