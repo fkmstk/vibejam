@@ -1,5 +1,5 @@
 import "./styles.css";
-import type { DuelSnapshot } from "./game/types";
+import type { CombatSnapshot } from "./game/types";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -10,217 +10,220 @@ if (!app) {
 type ElementOptions = {
   className?: string;
   textContent?: string;
-  attributes?: Record<string, string>;
-  dataset?: Record<string, string>;
 };
 
 interface AppShellRefs {
   sceneRoot: HTMLDivElement;
-  heroCallout: HTMLElement;
-  phaseLabel: HTMLElement;
-  windowLabel: HTMLElement;
-  statusTitle: HTMLElement;
-  statusText: HTMLElement;
-  keyHint: HTMLElement;
-  resultFlash: HTMLElement;
+  titleLabel: HTMLElement;
+  subtitleLabel: HTMLElement;
+  hintLabel: HTMLElement;
+  resultChip: HTMLElement;
+  roundValue: HTMLElement;
+  scoreValue: HTMLElement;
+  streakValue: HTMLElement;
+  missesValue: HTMLElement;
+  actionLabel: HTMLElement;
+  footerLabel: HTMLElement;
 }
-
 
 const createElement = <K extends keyof HTMLElementTagNameMap>(
   tagName: K,
   options: ElementOptions = {}
 ) => {
   const element = document.createElement(tagName);
-
-  if (options.className) {
-    element.className = options.className;
-  }
-
-  if (options.textContent) {
-    element.textContent = options.textContent;
-  }
-
-  if (options.attributes) {
-    for (const [name, value] of Object.entries(options.attributes)) {
-      element.setAttribute(name, value);
-    }
-  }
-
-  if (options.dataset) {
-    for (const [name, value] of Object.entries(options.dataset)) {
-      element.dataset[name] = value;
-    }
-  }
-
+  if (options.className) element.className = options.className;
+  if (options.textContent) element.textContent = options.textContent;
   return element;
 };
 
 const buildAppShell = (mountPoint: HTMLDivElement): AppShellRefs => {
-  const main = createElement("main", { className: "shell" });
-  const experience = createElement("section", { className: "experience" });
-  main.append(experience);
+  const shell = createElement("main", { className: "shell" });
+  const stage = createElement("section", { className: "stage-shell" });
+  const sceneRoot = createElement("div", { className: "stage-shell__canvas" });
+  const overlay = createElement("div", { className: "overlay" });
 
-  const topRail = createElement("header", { className: "top-rail" });
-  const topRailMark = createElement("span", {
-    className: "top-rail__mark",
+  const brand = createElement("div", { className: "brand" });
+  const brandMark = createElement("span", {
+    className: "brand__mark",
     textContent: "刀"
   });
-  topRail.append(topRailMark);
-
-  const stageShell = createElement("section", { className: "stage-shell" });
-  const sceneRoot = createElement("div", {
-    className: "stage-shell__canvas",
-    dataset: { sceneRoot: "" }
+  const brandName = createElement("span", {
+    className: "brand__name",
+    textContent: "Moonlit Duel"
   });
-  const stageOverlay = createElement("div", { className: "stage-shell__overlay" });
+  brand.append(brandMark, brandName);
 
-  const heroCopy = createElement("div", { className: "hero-copy" });
-
-  const title = createElement("h1", { className: "title" });
-  title.append(
-    createElement("span", {
-      className: "title__jp",
-      textContent: "月下ノ刃"
-    })
-  );
-  const heroCallout = createElement("p", {
-    className: "hero-callout",
-    textContent: "待って、赤で斬れ。"
+  const hero = createElement("section", { className: "hero" });
+  const titleLabel = createElement("h1", {
+    className: "hero__title",
+    textContent: "月下ノ刃"
   });
-  heroCopy.append(title, heroCallout);
-
-  const hud = createElement("div", {
-    className: "hud",
-    attributes: { "aria-live": "polite" }
+  const subtitleLabel = createElement("p", {
+    className: "hero__subtitle",
+    textContent: "Move / Tap で開戦"
   });
-  const hudRow = createElement("div", { className: "hud__row" });
-
-  const phaseLabel = createElement("strong", {
-    textContent: "Idle",
-    dataset: { phaseLabel: "" }
+  const hintLabel = createElement("p", {
+    className: "hero__hint",
+    textContent: "WASD / Arrow で移動  Space / Click / Tap で斬る"
   });
-  const windowLabel = createElement("strong", {
-    textContent: "Wait",
-    dataset: { windowLabel: "" }
+  hero.append(titleLabel, subtitleLabel, hintLabel);
+
+  const resultChip = createElement("p", {
+    className: "result-chip",
+    textContent: "決闘中"
   });
 
-  const createHudChip = (
-    label: string,
-    value: HTMLElement,
-    accent = false
-  ) => {
-    const chip = createElement("div", {
-      className: accent ? "hud__chip hud__chip--accent" : "hud__chip"
+  const stats = createElement("section", { className: "run-stats" });
+  const createStat = (label: string, value: string) => {
+    const item = createElement("p", { className: "run-stat" });
+    const statLabel = createElement("span", {
+      className: "run-stat__label",
+      textContent: label
     });
-    chip.append(
-      createElement("span", {
-        className: "hud__label",
-        textContent: label
-      }),
-      value
-    );
-    return chip;
+    const statValue = createElement("strong", {
+      className: "run-stat__value",
+      textContent: value
+    });
+    item.append(statLabel, statValue);
+    return { item, value: statValue };
   };
+  const roundStat = createStat("ROUND", "1/5");
+  const scoreStat = createStat("SCORE", "0");
+  const streakStat = createStat("STREAK", "0");
+  const missesStat = createStat("MISS", "0/3");
+  stats.append(roundStat.item, scoreStat.item, streakStat.item, missesStat.item);
 
-  hudRow.append(
-    createHudChip("Phase", phaseLabel),
-    createHudChip("Window", windowLabel, true)
-  );
-
-  const hudBottom = createElement("div", { className: "hud__bottom" });
-  const hudStatus = createElement("div", { className: "hud__status" });
-  const statusTitle = createElement("p", {
-    className: "hud__status-title",
-    textContent: "静観",
-    dataset: { statusTitle: "" }
-  });
-  const statusText = createElement("p", {
-    className: "hud__status-text",
-    textContent: "深紅の合図を待て。",
-    dataset: { statusText: "" }
-  });
-  hudStatus.append(statusTitle, statusText);
-
-  const keyHint = createElement("p", {
-    className: "key-hint",
-    textContent: "Tap / Space",
-    dataset: { inputHint: "" }
+  const actionLabel = createElement("p", {
+    className: "next-action",
+    textContent: "Move / Tap で開戦"
   });
 
-  hudBottom.append(hudStatus, keyHint);
-  hud.append(hudRow, hudBottom);
-
-  const resultFlash = createElement("p", {
-    className: "result-flash",
-    textContent: "一閃",
-    dataset: { resultFlash: "" }
+  const touchGuide = createElement("div", { className: "touch-guide" });
+  const moveGuide = createElement("span", {
+    className: "touch-guide__zone touch-guide__zone--move",
+    textContent: "左: 移動"
   });
+  const strikeGuide = createElement("span", {
+    className: "touch-guide__zone touch-guide__zone--strike",
+    textContent: "右: 斬る"
+  });
+  touchGuide.append(moveGuide, strikeGuide);
 
-  stageOverlay.append(heroCopy, resultFlash, hud);
-  stageShell.append(sceneRoot, stageOverlay);
+  const footer = createElement("footer", { className: "footer" });
+  const footerLabel = createElement("p", {
+    className: "footer__label",
+    textContent: "敵の予兆を見て、正しい方向へ外せ"
+  });
+  footer.append(footerLabel);
 
-  experience.append(topRail, stageShell);
-  mountPoint.replaceChildren(main);
+  overlay.append(brand, hero, stats, resultChip, actionLabel, touchGuide, footer);
+  stage.append(sceneRoot, overlay);
+  shell.append(stage);
+  mountPoint.replaceChildren(shell);
+
   return {
     sceneRoot,
-    heroCallout,
-    phaseLabel,
-    windowLabel,
-    statusTitle,
-    statusText,
-    keyHint,
-    resultFlash
+    titleLabel,
+    subtitleLabel,
+    hintLabel,
+    resultChip,
+    roundValue: roundStat.value,
+    scoreValue: scoreStat.value,
+    streakValue: streakStat.value,
+    missesValue: missesStat.value,
+    actionLabel,
+    footerLabel
   };
 };
 
-const { sceneRoot, heroCallout, phaseLabel, windowLabel, statusTitle, statusText, keyHint, resultFlash } =
-  buildAppShell(app);
+const refs = buildAppShell(app);
 
-const phaseCopy: Record<DuelSnapshot["phase"], string> = {
-  idle: "Idle",
-  omen: "Omen",
-  "strike-window": "Strike",
-  resolved: "Resolved",
-  reset: "Reset"
+const updateOverlay = (snapshot: CombatSnapshot) => {
+  refs.titleLabel.textContent = snapshot.title;
+  refs.subtitleLabel.textContent = snapshot.subtitle;
+  refs.hintLabel.textContent = snapshot.hint;
+  refs.roundValue.textContent = `${snapshot.round}/${snapshot.maxRounds}`;
+  refs.scoreValue.textContent = snapshot.score.toLocaleString("en-US");
+  refs.streakValue.textContent = `x${Math.max(1, snapshot.streak)}`;
+  refs.missesValue.textContent = `${snapshot.misses}/${snapshot.maxMisses}`;
+  refs.actionLabel.textContent = snapshot.nextAction;
+  refs.footerLabel.textContent =
+    snapshot.mode === "combat"
+      ? `ROUND ${snapshot.round}: ${snapshot.nextAction}`
+      : snapshot.runComplete
+        ? snapshot.result === "success"
+          ? "五連斬り。まぁ悪くないじゃん"
+          : "三度斬られた。次は見切りなよ"
+        : snapshot.result === "success"
+          ? "避けて刺した。次、来るよ"
+          : snapshot.result === "fail"
+            ? "今の太刀筋、覚えたでしょ"
+            : "赤を外して、白い隙を斬れ";
+
+  refs.resultChip.textContent =
+    snapshot.mode === "title"
+      ? "READY"
+      : snapshot.mode === "combat"
+        ? snapshot.enemy.vulnerable
+          ? "OPEN"
+          : `ROUND ${snapshot.round}`
+        : snapshot.runComplete
+          ? snapshot.result === "success"
+            ? "CLEAR"
+            : "GAME OVER"
+          : snapshot.result === "success"
+            ? "NEXT"
+            : "MISS";
+
+  document.documentElement.dataset.mode = snapshot.mode;
+  document.documentElement.dataset.result = snapshot.result;
+  document.documentElement.dataset.runComplete = `${snapshot.runComplete}`;
+  document.documentElement.dataset.enemy = snapshot.enemy.telegraphType;
 };
 
-const updateOverlay = (snapshot: DuelSnapshot) => {
-  phaseLabel.textContent = phaseCopy[snapshot.phase];
-  windowLabel.textContent = snapshot.canStrike ? "Now" : "Closed";
-  statusTitle.textContent = snapshot.title;
-  statusText.textContent = snapshot.message;
-  heroCallout.textContent = snapshot.callout;
-  keyHint.textContent = snapshot.inputHint;
-  resultFlash.textContent = snapshot.flash;
-  resultFlash.dataset.visible = snapshot.flashVisible ? "true" : "false";
-  document.documentElement.dataset.phase = snapshot.phase;
-  document.documentElement.dataset.outcome = snapshot.outcome;
-  document.documentElement.dataset.emphasis = snapshot.emphasis;
-  document.documentElement.style.setProperty("--phase-progress", snapshot.phaseProgress.toFixed(3));
+const showFallback = () => {
+  refs.sceneRoot.replaceChildren();
+  refs.sceneRoot.classList.add("stage-shell__canvas--fallback");
+  const fallback = createElement("section", { className: "fallback-panel" });
+  const label = createElement("p", {
+    className: "fallback-panel__label",
+    textContent: "3D描画が起きなかった"
+  });
+  const title = createElement("h2", {
+    className: "fallback-panel__title",
+    textContent: "赤を避けて、白い隙を斬る"
+  });
+  const body = createElement("p", {
+    className: "fallback-panel__body",
+    textContent:
+      "この端末のWebGLが眠ってるだけ。GPU設定を変えるか、別ブラウザで開けば勝負できるじゃん。"
+  });
+  const button = createElement("button", {
+    className: "fallback-panel__button",
+    textContent: "Reload"
+  });
+  button.addEventListener("click", () => window.location.reload());
+  fallback.append(label, title, body, button);
+  refs.sceneRoot.append(fallback);
+  refs.resultChip.textContent = "WEBGL";
+  refs.actionLabel.textContent = "再読み込み / 別ブラウザ";
+  refs.footerLabel.textContent = "空画面で終わらせないくらいはしてるの";
+  document.documentElement.dataset.mode = "fallback";
 };
 
 const bootstrap = async () => {
-  const { createDuelExperience } = await import("./game/experience");
+  try {
+    const { createDuelExperience } = await import("./game/experience");
+    const experience = createDuelExperience({
+      mount: refs.sceneRoot,
+      onStateChange: updateOverlay
+    });
 
-  const experience = createDuelExperience({
-    mount: sceneRoot,
-    onStateChange: updateOverlay
-  });
-
-  updateOverlay(experience.getSnapshot());
-
-  const attemptStrike = () => {
-    experience.attemptStrike();
-  };
-
-  window.addEventListener("keydown", (event: KeyboardEvent) => {
-    if (event.code === "Space" || event.code === "Enter") {
-      event.preventDefault();
-      attemptStrike();
-    }
-  });
-
-  sceneRoot.addEventListener("pointerdown", attemptStrike);
+    updateOverlay(experience.getSnapshot());
+  } catch (error) {
+    console.error("Failed to start Moonlit Duel", error);
+    showFallback();
+  }
 };
 
 void bootstrap();
