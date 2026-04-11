@@ -22,16 +22,36 @@ const ROUND_ADVANCE_DELAY = 0.82;
 const MAX_ROUNDS = 5;
 const MAX_MISSES = 3;
 
-const telegraphDurations: Record<Exclude<TelegraphType, "none">, number> = {
+type TelegraphCue = Exclude<TelegraphType, "none">;
+
+const telegraphDurations: Record<TelegraphCue, number> = {
   dash: 0.92,
   sweep: 0.86,
   slam: 1
 };
 
-const telegraphOpenings: Record<Exclude<TelegraphType, "none">, number> = {
+const telegraphOpenings: Record<TelegraphCue, number> = {
   dash: 0.62,
   sweep: 0.68,
   slam: 0.74
+};
+
+const telegraphTitles: Record<TelegraphCue, string> = {
+  dash: "直線突進",
+  sweep: "横薙ぎ",
+  slam: "踏み込み斬り"
+};
+
+const telegraphHints: Record<TelegraphCue, string> = {
+  dash: "直線突進: 横へ逃げろ",
+  sweep: "横薙ぎ: 後ろへ下がれ",
+  slam: "踏み込み斬り: 内側へ潜れ"
+};
+
+const telegraphActions: Record<TelegraphCue, string> = {
+  dash: "横へ逃げろ",
+  sweep: "後ろへ下がれ",
+  slam: "内側へ潜れ"
 };
 
 interface Vec2 {
@@ -62,7 +82,7 @@ interface EnemyState extends FighterState {
   attackAnchor: Vec2;
 }
 
-const attackOrder: Exclude<TelegraphType, "none">[] = ["dash", "sweep", "slam"];
+const attackOrder: TelegraphCue[] = ["dash", "sweep", "slam"];
 
 interface RoundTuning {
   telegraphScale: number;
@@ -100,6 +120,9 @@ const normalize = (vector: Vec2): Vec2 => {
 };
 
 const distanceBetween = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.z - b.z);
+
+const getTelegraphCue = (type: TelegraphType): TelegraphCue | null =>
+  type === "none" ? null : type;
 
 const moveTowards = (current: Vec2, target: Vec2, maxDistance: number): Vec2 => {
   const delta = { x: target.x - current.x, z: target.z - current.z };
@@ -219,15 +242,10 @@ export class CombatController {
     const camera = this.computeCamera(viewportMode);
     const distance = distanceBetween(this.player.position, this.enemy.position);
     const enemyVulnerable = this.enemy.state === "vulnerable";
-    const telegraphProgress =
-      this.enemy.telegraphType === "none"
-        ? 0
-        : clamp(
-            this.enemy.telegraphTimer /
-              this.getTelegraphDuration(this.enemy.telegraphType),
-            0,
-            1
-          );
+    const telegraphCue = getTelegraphCue(this.enemy.telegraphType);
+    const telegraphProgress = telegraphCue
+      ? clamp(this.enemy.telegraphTimer / this.getTelegraphDuration(telegraphCue), 0, 1)
+      : 0;
 
     return {
       mode: this.mode,
@@ -371,12 +389,14 @@ export class CombatController {
     }
 
     if (this.enemy.state === "telegraph") {
+      const telegraphCue = getTelegraphCue(this.enemy.telegraphType);
+      if (!telegraphCue) {
+        return;
+      }
+
       this.enemy.telegraphTimer += dt;
       this.updateEnemyTelegraphMotion(dt);
-
-      const duration = this.getTelegraphDuration(
-        this.enemy.telegraphType as Exclude<TelegraphType, "none">
-      );
+      const duration = this.getTelegraphDuration(telegraphCue);
       if (this.enemy.telegraphTimer >= duration) {
         this.resolveEnemyAttack();
       }
@@ -449,18 +469,18 @@ export class CombatController {
   }
 
   private updateEnemyTelegraphMotion(dt: number) {
-    const attack = this.enemy.telegraphType;
+    const attack = getTelegraphCue(this.enemy.telegraphType);
+    if (!attack) {
+      return;
+    }
+
     const forward = this.enemy.attackForward;
     const right = { x: -forward.z, z: forward.x };
-    const progress =
-      this.enemy.telegraphType === "none"
-        ? 0
-        : clamp(
-            this.enemy.telegraphTimer /
-              this.getTelegraphDuration(attack as Exclude<TelegraphType, "none">),
-            0,
-            1
-          );
+    const progress = clamp(
+      this.enemy.telegraphTimer / this.getTelegraphDuration(attack),
+      0,
+      1
+    );
 
     let target = this.enemy.position;
     if (attack === "dash") {
@@ -541,7 +561,11 @@ export class CombatController {
   }
 
   private resolveEnemyAttack() {
-    const attack = this.enemy.telegraphType;
+    const attack = getTelegraphCue(this.enemy.telegraphType);
+    if (!attack) {
+      return;
+    }
+
     const toAnchor = {
       x: this.player.position.x - this.enemy.attackAnchor.x,
       z: this.player.position.z - this.enemy.attackAnchor.z
@@ -562,9 +586,7 @@ export class CombatController {
 
     if (safe) {
       this.enemy.state = "vulnerable";
-      this.enemy.vulnerableTimer = this.getTelegraphOpening(
-        attack as Exclude<TelegraphType, "none">
-      );
+      this.enemy.vulnerableTimer = this.getTelegraphOpening(attack);
       return;
     }
 
@@ -616,11 +638,11 @@ export class CombatController {
     return roundTunings[Math.max(0, Math.min(roundTunings.length - 1, this.round - 1))];
   }
 
-  private getTelegraphDuration(type: Exclude<TelegraphType, "none">) {
+  private getTelegraphDuration(type: TelegraphCue) {
     return telegraphDurations[type] * this.getTuning().telegraphScale;
   }
 
-  private getTelegraphOpening(type: Exclude<TelegraphType, "none">) {
+  private getTelegraphOpening(type: TelegraphCue) {
     return telegraphOpenings[type] * this.getTuning().openingScale;
   }
 
@@ -653,10 +675,10 @@ export class CombatController {
       return "隙";
     }
 
-    const type = this.enemy.telegraphType;
-    if (type === "dash") return "直線突進";
-    if (type === "sweep") return "横薙ぎ";
-    if (type === "slam") return "踏み込み斬り";
+    const telegraphCue = getTelegraphCue(this.enemy.telegraphType);
+    if (telegraphCue) {
+      return telegraphTitles[telegraphCue];
+    }
 
     return "間合い";
   }
@@ -701,16 +723,9 @@ export class CombatController {
       return "隙が開いた。近づいて斬れ";
     }
 
-    if (this.enemy.telegraphType === "dash") {
-      return "直線突進: 横へ逃げろ";
-    }
-
-    if (this.enemy.telegraphType === "sweep") {
-      return "横薙ぎ: 後ろへ下がれ";
-    }
-
-    if (this.enemy.telegraphType === "slam") {
-      return "踏み込み斬り: 内側へ潜れ";
+    const telegraphCue = getTelegraphCue(this.enemy.telegraphType);
+    if (telegraphCue) {
+      return telegraphHints[telegraphCue];
     }
 
     return "間合いを維持して、次の予兆を待て";
@@ -730,9 +745,10 @@ export class CombatController {
       return distance <= PLAYER_ATTACK_RANGE ? "今斬れ" : "詰めろ";
     }
 
-    if (this.enemy.telegraphType === "dash") return "横へ逃げろ";
-    if (this.enemy.telegraphType === "sweep") return "後ろへ下がれ";
-    if (this.enemy.telegraphType === "slam") return "内側へ潜れ";
+    const telegraphCue = getTelegraphCue(this.enemy.telegraphType);
+    if (telegraphCue) {
+      return telegraphActions[telegraphCue];
+    }
 
     return "赤を待て";
   }

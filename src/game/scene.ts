@@ -428,54 +428,60 @@ export const createStageScene = (mount: HTMLElement, reducedMotion: boolean): St
     slamOuter.material.opacity = 0;
     slamSafe.material.opacity = 0;
 
-    if (type === "dash") {
-      dashMarker.material.opacity = 0.22 + progress * 0.38;
-      dashMarker.position.set(positionX, 0.04, positionZ);
-      dashMarker.rotation.y = facing;
-      dashMarker.scale.set(1, 1, 0.8 + progress * 0.45);
+    switch (type) {
+      case "dash": {
+        dashMarker.material.opacity = 0.22 + progress * 0.38;
+        dashMarker.position.set(positionX, 0.04, positionZ);
+        dashMarker.rotation.y = facing;
+        dashMarker.scale.set(1, 1, 0.8 + progress * 0.45);
 
-      const sideX = Math.cos(facing) * 1.42;
-      const sideZ = -Math.sin(facing) * 1.42;
-      dashSafeA.material.opacity = 0.1 + progress * 0.14;
-      dashSafeB.material.opacity = dashSafeA.material.opacity;
-      dashSafeA.position.set(positionX + sideX, 0.055, positionZ + sideZ);
-      dashSafeB.position.set(positionX - sideX, 0.055, positionZ - sideZ);
-      dashSafeA.rotation.y = facing;
-      dashSafeB.rotation.y = facing;
-    }
-
-    if (type === "sweep") {
-      sweepMarker.material.opacity = 0.16 + progress * 0.34;
-      sweepMarker.position.set(positionX, 0.05, positionZ);
-      sweepMarker.scale.setScalar(0.88 + progress * 0.24);
-      sweepSafe.material.opacity = 0.08 + progress * 0.14;
-      sweepSafe.position.set(positionX, 0.058, positionZ);
-      sweepSafe.scale.setScalar(0.92 + progress * 0.12);
-    }
-
-    if (type === "slam") {
-      slamOuter.material.opacity = 0.2 + progress * 0.34;
-      slamOuter.position.set(positionX, 0.04, positionZ);
-      slamOuter.scale.setScalar(0.9 + progress * 0.28);
-      slamSafe.material.opacity = 0.2 + progress * 0.12;
-      slamSafe.position.set(positionX, 0.045, positionZ);
+        const sideX = Math.cos(facing) * 1.42;
+        const sideZ = -Math.sin(facing) * 1.42;
+        dashSafeA.material.opacity = 0.1 + progress * 0.14;
+        dashSafeB.material.opacity = dashSafeA.material.opacity;
+        dashSafeA.position.set(positionX + sideX, 0.055, positionZ + sideZ);
+        dashSafeB.position.set(positionX - sideX, 0.055, positionZ - sideZ);
+        dashSafeA.rotation.y = facing;
+        dashSafeB.rotation.y = facing;
+        break;
+      }
+      case "sweep":
+        sweepMarker.material.opacity = 0.16 + progress * 0.34;
+        sweepMarker.position.set(positionX, 0.05, positionZ);
+        sweepMarker.scale.setScalar(0.88 + progress * 0.24);
+        sweepSafe.material.opacity = 0.08 + progress * 0.14;
+        sweepSafe.position.set(positionX, 0.058, positionZ);
+        sweepSafe.scale.setScalar(0.92 + progress * 0.12);
+        break;
+      case "slam":
+        slamOuter.material.opacity = 0.2 + progress * 0.34;
+        slamOuter.position.set(positionX, 0.04, positionZ);
+        slamOuter.scale.setScalar(0.9 + progress * 0.28);
+        slamSafe.material.opacity = 0.2 + progress * 0.12;
+        slamSafe.position.set(positionX, 0.045, positionZ);
+        break;
+      default:
+        break;
     }
   };
 
   return {
     render(snapshot, now) {
       const time = now * 0.001;
+      const playerState = snapshot.player.state;
+      const enemyState = snapshot.enemy.state;
+      const resolved = snapshot.mode === "resolved";
       const enemyPulse = snapshot.enemy.telegraphProgress;
       const playerMove =
-        snapshot.player.state === "move"
+        playerState === "move"
           ? Math.sin(time * 9.6) * 0.06
-          : snapshot.player.state === "strike"
+          : playerState === "strike"
             ? 0.12
             : 0;
       const enemyMove =
-        snapshot.enemy.state === "move"
+        enemyState === "move"
           ? Math.sin(time * 7.4 + 0.8) * 0.05
-          : snapshot.enemy.state === "telegraph"
+          : enemyState === "telegraph"
             ? enemyPulse * 0.16
             : 0;
 
@@ -493,43 +499,43 @@ export const createStageScene = (mount: HTMLElement, reducedMotion: boolean): St
       enemy.aura.scale.setScalar(snapshot.enemy.vulnerable ? 1.14 : 1 + enemyPulse * 0.18);
 
       player.blade.material.emissiveIntensity =
-        snapshot.player.state === "strike" ? 0.56 : 0.14;
+        playerState === "strike" ? 0.56 : 0.14;
       enemy.blade.material.emissiveIntensity =
-        snapshot.enemy.state === "telegraph"
+        enemyState === "telegraph"
           ? 0.24 + enemyPulse * 0.95
-          : snapshot.enemy.state === "attack"
+          : enemyState === "attack"
             ? 0.82
             : snapshot.enemy.vulnerable
               ? 0.18
               : 0.14;
 
       const playerLean =
-        snapshot.player.state === "strike"
+        playerState === "strike"
           ? -0.24
-          : snapshot.player.state === "move"
+          : playerState === "move"
             ? Math.sin(time * 9.6) * 0.04
             : 0;
       const enemyLean =
-        snapshot.enemy.state === "telegraph"
+        enemyState === "telegraph"
           ? -enemyPulse * 0.25
-          : snapshot.enemy.state === "attack"
+          : enemyState === "attack"
             ? -0.18
-            : snapshot.enemy.state === "down"
+            : enemyState === "down"
               ? -0.68
               : 0;
       player.torso.rotation.z = playerLean;
       enemy.torso.rotation.z = enemyLean;
-      enemy.head.rotation.x = snapshot.enemy.state === "down" ? 0.46 : 0;
+      enemy.head.rotation.x = enemyState === "down" ? 0.46 : 0;
 
       setTrailOpacity(
         player,
-        snapshot.player.state === "strike" ? 0.48 : 0,
-        snapshot.player.state === "strike" ? 1.1 : 0.8
+        playerState === "strike" ? 0.48 : 0,
+        playerState === "strike" ? 1.1 : 0.8
       );
       setTrailOpacity(
         enemy,
-        snapshot.enemy.state === "attack" ? 0.54 : snapshot.enemy.state === "telegraph" ? 0.22 : 0,
-        snapshot.enemy.state === "attack" ? 1.28 : 0.9
+        enemyState === "attack" ? 0.54 : enemyState === "telegraph" ? 0.22 : 0,
+        enemyState === "attack" ? 1.28 : 0.9
       );
 
       applyTelegraph(
@@ -543,23 +549,17 @@ export const createStageScene = (mount: HTMLElement, reducedMotion: boolean): St
       impactFlash.material.opacity = 0;
       inkCut.material.opacity = 0;
       redCut.material.opacity = 0;
-      if (snapshot.mode === "resolved") {
+      if (resolved) {
+        const cutCenterX = MathUtils.lerp(snapshot.player.x, snapshot.enemy.x, 0.5);
+        const cutCenterZ = MathUtils.lerp(snapshot.player.z, snapshot.enemy.z, 0.5);
         impactFlash.material.color.set(snapshot.result === "success" ? "#fff8ee" : "#c55249");
         impactFlash.material.opacity = snapshot.result === "success" ? 0.22 : 0.32;
-        impactFlash.position.set(
-          MathUtils.lerp(snapshot.player.x, snapshot.enemy.x, 0.5),
-          0.06,
-          MathUtils.lerp(snapshot.player.z, snapshot.enemy.z, 0.5)
-        );
+        impactFlash.position.set(cutCenterX, 0.06, cutCenterZ);
         impactFlash.scale.setScalar(snapshot.result === "success" ? 12 : 14);
 
         const cut = snapshot.result === "success" ? inkCut : redCut;
         cut.material.opacity = snapshot.result === "success" ? 0.32 : 0.48;
-        cut.position.set(
-          MathUtils.lerp(snapshot.player.x, snapshot.enemy.x, 0.5),
-          1.7,
-          MathUtils.lerp(snapshot.player.z, snapshot.enemy.z, 0.5)
-        );
+        cut.position.set(cutCenterX, 1.7, cutCenterZ);
         cut.rotation.set(-0.1, snapshot.player.facing - Math.PI / 2, snapshot.result === "success" ? -0.22 : 0.2);
       }
 
@@ -572,9 +572,9 @@ export const createStageScene = (mount: HTMLElement, reducedMotion: boolean): St
       );
       camera.lookAt(snapshot.camera.lookAtX, snapshot.camera.lookAtY, snapshot.camera.lookAtZ);
 
-      mistNear.material.opacity = 0.12 + (snapshot.enemy.state === "telegraph" ? enemyPulse * 0.08 : 0);
+      mistNear.material.opacity = 0.12 + (enemyState === "telegraph" ? enemyPulse * 0.08 : 0);
       mistFar.material.opacity = 0.1 + (snapshot.mode === "title" ? 0.03 : 0);
-      moonHalo.material.opacity = 0.16 + (snapshot.mode === "resolved" ? 0.03 : 0);
+      moonHalo.material.opacity = 0.16 + (resolved ? 0.03 : 0);
 
       renderer.render(scene, camera);
     },
